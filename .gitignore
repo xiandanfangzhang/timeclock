@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+.dotnet/
+.nuget/
+.appdata/
+.localappdata/
+artifacts/publish/
+artifacts/installer/
+*.user
+*.suo

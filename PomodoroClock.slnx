@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PomodoroClock.App/PomodoroClock.App.csproj" />
+    <Project Path="src/PomodoroClock.Core/PomodoroClock.Core.csproj" />
+    <Project Path="src/PomodoroClock.Infrastructure/PomodoroClock.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PomodoroClock.Tests/PomodoroClock.Tests.csproj" />
+  </Folder>
+</Solution>
