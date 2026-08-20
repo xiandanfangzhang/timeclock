@@ -19,7 +19,7 @@ public partial class MainWindow : Window
     public MainWindow(SqliteDatabase db, LocalFileLogger log)
     {
         InitializeComponent(); _log=log; _tasks=new(db); _sessions=new(db); _timer=new(){Interval=TimeSpan.FromMilliseconds(300)}; _timer.Tick += (_,_) => RefreshTimer(); Loaded += async (_,_) => await InitializeAsync();
-        _tray=new Forms.NotifyIcon{Visible=true,Text="番茄时钟",Icon=System.Drawing.SystemIcons.Application}; var menu=new Forms.ContextMenuStrip(); menu.Items.Add("显示主窗口",null,(_,_)=>ShowWindow()); menu.Items.Add("退出程序",null,(_,_)=>ExitApplication()); _tray.ContextMenuStrip=menu; _tray.DoubleClick += (_,_)=>ShowWindow();
+        var trayIcon=System.Drawing.Icon.ExtractAssociatedIcon(System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName??string.Empty)??System.Drawing.SystemIcons.Application; _tray=new Forms.NotifyIcon{Visible=true,Text="番茄时钟",Icon=trayIcon}; var menu=new Forms.ContextMenuStrip(); menu.Items.Add("显示主窗口",null,(_,_)=>ShowWindow()); menu.Items.Add("退出程序",null,(_,_)=>ExitApplication()); _tray.ContextMenuStrip=menu; _tray.DoubleClick += (_,_)=>ShowWindow();
         // Default selections in XAML raise SelectionChanged while InitializeComponent is
         // still building the visual tree. Enable data-loading handlers only after the
         // window and all of its dependencies have been constructed.
