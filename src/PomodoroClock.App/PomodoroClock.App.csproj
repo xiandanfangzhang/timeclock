@@ -12,6 +12,7 @@
     <PublishSingleFile>false</PublishSingleFile>
     <RootNamespace>PomodoroClock.App</RootNamespace>
     <AssemblyName>番茄时钟</AssemblyName>
+    <ApplicationIcon>..\..\assets\app-icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PomodoroClock.Core\PomodoroClock.Core.csproj" />
