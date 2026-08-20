@@ -36,10 +36,51 @@ public partial class MainWindow : Window
     private async void SaveSettingsClick(object s,RoutedEventArgs e){try{var v=new TimerSettings(int.Parse(FocusBox.Text),int.Parse(ShortBox.Text),int.Parse(LongBox.Text),int.Parse(RoundsBox.Text));v.Validate();await _sessions.SaveTimerSettingsAsync(v);_settings=v;_pomodoro.UpdateSettings(v);SettingsMessage.Text="设置已保存，将从下一阶段生效。";}catch{SettingsMessage.Text="请输入有效数字：专注 1-120，短休息 1-60，长休息 1-120，间隔 1-12。";}}
     private void ApplySettings(){FocusBox.Text=_settings.FocusMinutes.ToString();ShortBox.Text=_settings.ShortBreakMinutes.ToString();LongBox.Text=_settings.LongBreakMinutes.ToString();RoundsBox.Text=_settings.RoundsBeforeLongBreak.ToString();}
     private async void NewTaskClick(object s,RoutedEventArgs e){var w=new Window{Title="新建事项",Owner=this,Width=400,Height=220,MinWidth=340,WindowStartupLocation=WindowStartupLocation.CenterOwner};var p=new StackPanel{Margin=new Thickness(24)};p.Children.Add(new TextBlock{Text="事项名称",Margin=new Thickness(0,0,0,6)});var input=new TextBox{MaxLength=120};p.Children.Add(input);var b=new Button{Content="保存事项",Style=(Style)FindResource("PrimaryButtonStyle"),MinWidth=112,Margin=new Thickness(0,16,0,0),HorizontalAlignment=HorizontalAlignment.Right};p.Children.Add(b);b.Click+=(_,_)=>{if(!string.IsNullOrWhiteSpace(input.Text))w.DialogResult=true;};w.Content=p;if(w.ShowDialog()==true){await _tasks.SaveAsync(new(Guid.NewGuid(),input.Text.Trim(),"",WorkItemStatus.InProgress,WorkItemPriority.Normal,DateTimeOffset.UtcNow,null,0));await ReloadTasksAsync();}}
+    private void TaskSelectionChanged(object s,SelectionChangedEventArgs e){EditTaskButton.Visibility=TasksList.SelectedItem is WorkItem?Visibility.Visible:Visibility.Collapsed;}
+    private async void EditTaskClick(object s,RoutedEventArgs e)
+    {
+        if(TasksList.SelectedItem is not WorkItem item)return;
+        var w=new Window{Title="修改事项",Owner=this,Width=420,Height=340,MinWidth=360,WindowStartupLocation=WindowStartupLocation.CenterOwner,ResizeMode=ResizeMode.NoResize};
+        var p=new StackPanel{Margin=new Thickness(24)};
+        p.Children.Add(new TextBlock{Text=item.Title,FontSize=18,FontWeight=FontWeights.SemiBold,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,20)});
+        p.Children.Add(new TextBlock{Text="优先级",Margin=new Thickness(0,0,0,6)});
+        var priorityBox=new ComboBox{SelectedValuePath="Tag",Padding=new Thickness(8),Margin=new Thickness(0,0,0,16)};
+        priorityBox.Items.Add(new ComboBoxItem{Content="低",Tag=WorkItemPriority.Low});
+        priorityBox.Items.Add(new ComboBoxItem{Content="普通",Tag=WorkItemPriority.Normal});
+        priorityBox.Items.Add(new ComboBoxItem{Content="高",Tag=WorkItemPriority.High});
+        priorityBox.SelectedValue=item.Priority;
+        p.Children.Add(priorityBox);
+        p.Children.Add(new TextBlock{Text="状态",Margin=new Thickness(0,0,0,6)});
+        var statusBox=new ComboBox{SelectedValuePath="Tag",Padding=new Thickness(8)};
+        statusBox.Items.Add(new ComboBoxItem{Content="进行中",Tag=WorkItemStatus.InProgress});
+        statusBox.Items.Add(new ComboBoxItem{Content="已完成",Tag=WorkItemStatus.Completed});
+        statusBox.SelectedValue=item.Status;
+        p.Children.Add(statusBox);
+        var actions=new WrapPanel{HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,22,0,0)};
+        var cancel=new Button{Content="取消",Style=(Style)FindResource("SecondaryButtonStyle"),MinWidth=88,Margin=new Thickness(0,0,8,0)};
+        var save=new Button{Content="保存修改",Style=(Style)FindResource("PrimaryButtonStyle"),MinWidth=112};
+        cancel.Click+=(_,_)=>w.DialogResult=false;
+        save.Click+=(_,_)=>w.DialogResult=true;
+        actions.Children.Add(cancel);actions.Children.Add(save);p.Children.Add(actions);w.Content=p;
+        if(w.ShowDialog()!=true)return;
+        try
+        {
+            var priority=(WorkItemPriority)(priorityBox.SelectedValue??item.Priority);
+            var status=(WorkItemStatus)(statusBox.SelectedValue??item.Status);
+            DateTimeOffset? completed=status==WorkItemStatus.Completed?item.CompletedUtc??DateTimeOffset.UtcNow:null;
+            await _tasks.SaveAsync(item with{Priority=priority,Status=status,CompletedUtc=completed});
+            await ReloadTasksAsync();
+        }
+        catch(Exception ex)
+        {
+            _log.Error(ex,"修改事项");
+            MessageBox.Show("事项修改失败，请稍后重试。","番茄时钟",MessageBoxButton.OK,MessageBoxImage.Error);
+        }
+    }
     private async void ReloadTasks(object s,SelectionChangedEventArgs e){if(!_selectionEventsReady)return;await ReloadTasksAsync();}
     private async Task ReloadTasksAsync(){Items.Clear();var all=await _tasks.GetAsync();var filtered=StatusFilter.SelectedIndex switch{1=>all.Where(x=>x.Status==WorkItemStatus.InProgress),2=>all.Where(x=>x.Status==WorkItemStatus.Completed),_=>all};foreach(var x in filtered)Items.Add(x);TasksList.ItemsSource=Items;}
     private async Task ReloadStatsAsync(){var d=DateOnly.FromDateTime(DateTime.Now);var summary=await _sessions.GetAsync(d,d);TodayPomodoros.Text=summary.Pomodoros.ToString();TodayMinutes.Text=$"{summary.FocusMinutes} 分钟";SessionsList.ItemsSource=summary.Sessions;}
-    private void NavTimer(object s,RoutedEventArgs e){Pages.SelectedIndex=0;SetPage("今天 · 专注模式","开始一轮专注");}private void NavTasks(object s,RoutedEventArgs e){Pages.SelectedIndex=1;SetPage("工作台 · 事项","把想法拆成下一步行动");}private void NavStats(object s,RoutedEventArgs e){Pages.SelectedIndex=2;SetPage("回顾 · 今日","每一次完整专注，都会留下清晰的轨迹");}private void NavSettings(object s,RoutedEventArgs e){Pages.SelectedIndex=3;SetPage("偏好设置","计时节奏和应用行为");}private void SetPage(string eyebrow,string title){PageEyebrow.Text=eyebrow;PageTitle.Text=title;}private async void Pages_SelectionChanged(object s,SelectionChangedEventArgs e){if(!_selectionEventsReady)return;if(Pages.SelectedIndex==1)await ReloadTasksAsync();if(Pages.SelectedIndex==2)await ReloadStatsAsync();}
+    private void NavTimer(object s,RoutedEventArgs e){Pages.SelectedIndex=0;SetPage("今天 · 专注模式","开始一轮专注");}private void NavTasks(object s,RoutedEventArgs e){Pages.SelectedIndex=1;SetPage("工作台 · 事项","把想法拆成下一步行动");}private void NavStats(object s,RoutedEventArgs e){Pages.SelectedIndex=2;SetPage("回顾 · 今日","每一次完整专注，都会留下清晰的轨迹");}private void NavSettings(object s,RoutedEventArgs e){Pages.SelectedIndex=3;SetPage("偏好设置","计时节奏和应用行为");}private void SetPage(string eyebrow,string title){PageEyebrow.Text=eyebrow;PageTitle.Text=title;}private async void Pages_SelectionChanged(object s,SelectionChangedEventArgs e){if(!_selectionEventsReady||!ReferenceEquals(e.OriginalSource,Pages))return;if(Pages.SelectedIndex==1)await ReloadTasksAsync();if(Pages.SelectedIndex==2)await ReloadStatsAsync();}
     private void ShowWindow(){Show();WindowState=WindowState.Normal;Activate();} private void ExitApplication(){_allowExit=true;Close();}
     private void Window_Closing(object? sender,System.ComponentModel.CancelEventArgs e){if(!_allowExit){e.Cancel=true;Hide();return;}if(_pomodoro?.Snapshot.Status==TimerStatus.Running&&MessageBox.Show("专注正在进行，退出后本轮不会计入统计。确定退出吗？","番茄时钟",MessageBoxButton.YesNo,MessageBoxImage.Warning)!=MessageBoxResult.Yes){e.Cancel=true;return;}_tray.Visible=false;_timer.Stop();}
 }
